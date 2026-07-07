@@ -1,6 +1,7 @@
 # Chougui Quantum Platform Website
 
 Official public website for the Chougui Quantum Platform, an AI and quantum-computing research platform with documented backend execution evidence, including public documentation, research overview, licensing information, support resources, and OpenAI App integration language.
+Official public website for the Chougui Quantum Platform, including public documentation, research overview, licensing information, support resources, and OpenAI App integration language.
 
 ## Pages
 
@@ -120,3 +121,4 @@ Use these settings on a typical Node.js host:
 3. In OpenAI Platform app configuration, set the MCP server URL to `https://<your-deployed-domain>/mcp`.
 4. Run **Scan Tools**.
 5. Confirm the five read-only tools appear: `search_public_docs`, `fetch_public_doc`, `list_public_resources`, `get_licensing_info`, and `get_support_info`.
+The website is intentionally public-facing. Do not add unpublished research details, confidential datasets, credentials, private infrastructure information, or unsupported scientific claims.

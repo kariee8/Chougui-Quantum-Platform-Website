@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -105,8 +105,13 @@ function readinessPayload() {
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
-app.use((_req, res, next) => {
+app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store');
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Accept, MCP-Session-Id, MCP-Protocol-Version');
+  res.set('Access-Control-Expose-Headers', 'MCP-Session-Id');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
@@ -167,26 +172,53 @@ app.post(MCP_PATH, async (req, res) => {
     }
 
     await transport.handleRequest(req, res, req.body);
-    console.log(JSON.stringify({ event: 'mcp_request', status: res.statusCode, duration_ms: Date.now() - startedAt }));
+    console.log(JSON.stringify({ event: 'mcp_request', method: 'POST', status: res.statusCode, duration_ms: Date.now() - startedAt }));
   } catch (error) {
-    console.error(JSON.stringify({ event: 'mcp_request_failed', duration_ms: Date.now() - startedAt, error: error instanceof Error ? error.message : String(error) }));
+    console.error(JSON.stringify({ event: 'mcp_request_failed', method: 'POST', duration_ms: Date.now() - startedAt, error: error instanceof Error ? error.message : String(error) }));
     if (!res.headersSent) {
       res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null });
     }
   }
 });
 
-app.get(MCP_PATH, (_req, res) => res.status(405).set('Allow', 'POST').type('text/plain').send('Method Not Allowed'));
+async function handleSessionRequest(req: Request, res: Response) {
+  const sessionId = req.headers['mcp-session-id'];
+  if (typeof sessionId !== 'string' || !transports[sessionId]) {
+    return res.status(400).json({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: 'Invalid or missing MCP session id' },
+      id: null
+    });
+  }
+
+  const startedAt = Date.now();
+  try {
+    await transports[sessionId].handleRequest(req, res);
+    console.log(JSON.stringify({ event: 'mcp_request', method: req.method, status: res.statusCode, duration_ms: Date.now() - startedAt }));
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'mcp_request_failed', method: req.method, duration_ms: Date.now() - startedAt, error: error instanceof Error ? error.message : String(error) }));
+    if (!res.headersSent) {
+      res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null });
+    }
+  }
+}
+
+app.get(MCP_PATH, handleSessionRequest);
+app.delete(MCP_PATH, handleSessionRequest);
 
 const httpServer = app.listen(PORT, () => {
   console.log(JSON.stringify({ event: 'server_started', service: APP_NAME, version: APP_VERSION, commit: COMMIT_SHA, port: PORT, mcp_endpoint: MCP_PATH }));
 });
 
-function shutdown(signal: string) {
+let shuttingDown = false;
+async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log(JSON.stringify({ event: 'server_shutdown', signal }));
+  await Promise.allSettled(Object.values(transports).map((transport) => transport.close()));
   httpServer.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));

@@ -4,7 +4,9 @@
     "build": "tsc",
     "start": "node dist/src/server.js",
     "check": "tsc --noEmit",
-    "test": "npm run check && node scripts/validate-public-corpus.mjs"
+    "validate:corpus": "node scripts/validate-public-corpus.mjs",
+    "smoke:mcp": "node scripts/smoke-mcp.mjs",
+    "test": "npm run check && npm run validate:corpus"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

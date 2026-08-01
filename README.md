@@ -1,124 +1,155 @@
 # Chougui Quantum Platform Website
 
-Official public website for the Chougui Quantum Platform, an AI and quantum-computing research platform with documented backend execution evidence, including public documentation, research overview, licensing information, support resources, and OpenAI App integration language.
-Official public website for the Chougui Quantum Platform, including public documentation, research overview, licensing information, support resources, and OpenAI App integration language.
+Public website and public, read-only MCP server for the Chougui Quantum Platform.
 
-## Pages
+The submitted OpenAI app scope is intentionally limited to approved public website pages and documentation. It does not expose private repositories, raw IBM Quantum job files, raw OpenQASM, credentials, personal documents, unpublished research, customer data, or paid quantum execution.
 
-- `index.html` — Home and animated hero
-- `about.html` — Mission and vision
-- `platform.html` — Platform overview
-- `technology.html` — Technology, Codex workflow, and MCP architecture overview
-- `research.html` — Public research communication overview
-- `licensing.html` — Licensing information
-- `privacy.html` — Privacy policy
-- `terms.html` — Terms of use
-- `support.html` — Documentation and support resources
-- `contact.html` — Public contact page
+## Public website
 
-## Structure
+The website contains:
 
-```text
-/assets
-  /css
-  /js
-  /images
-  /fonts
-/docs
-```
+- `index.html` — home
+- `about.html` — mission and background
+- `platform.html` — platform overview
+- `technology.html` — technology and MCP architecture
+- `research.html` — public research communication
+- `licensing.html` — licensing information
+- `privacy.html` — privacy policy
+- `terms.html` — terms of use
+- `support.html` — support resources
+- `contact.html` — contact information
+- `docs/` — approved public documentation
 
-## GitHub Pages deployment
+The static website may be hosted through GitHub Pages or another static host.
 
-1. Push this repository to GitHub.
-2. Open **Settings → Pages**.
-3. Select the branch that contains this website.
-4. Select the repository root as the publishing source.
-5. Save and wait for GitHub Pages to publish the site.
+## Public MCP server
 
-## Development
+The Node.js server exposes:
 
-This is a static website built with clean HTML, CSS, and vanilla JavaScript. No framework or build step is required.
+- `GET /` — service metadata
+- `GET /health` — process liveness
+- `GET /ready` — corpus and MCP readiness
+- `POST /mcp` — Streamable HTTP MCP endpoint
+- `GET /.well-known/openai-domain-verification.txt` — optional domain verification
 
-To preview locally:
+### Tools
 
-```bash
-python3 -m http.server 8000
-```
+- `search_public_docs`
+- `fetch_public_doc`
+- `list_public_resources`
+- `get_licensing_info`
+- `get_support_info`
 
-Then open `http://localhost:8000`.
+Every submitted tool is read-only and restricted to the approved public corpus.
 
-## Public information policy
+## Local development
 
-The website is intentionally public-facing. This platform includes protected research documentation and preserved IBM Quantum backend execution artifacts. Public materials summarize evidence categories only and do not expose raw job data, OpenQASM, private repository contents, or Core IP. Do not add unpublished research details, confidential datasets, credentials, private infrastructure information, raw JSON, raw OpenQASM, job payloads, Core IP, unsupported scientific claims, or IBM partnership/endorsement claims.
-
-## Public MCP server for ChatGPT Apps
-
-This repository includes a minimal read-only Model Context Protocol (MCP) server for OpenAI Apps SDK submission and tool scanning of public-safe website materials for an AI and quantum-computing research platform with documented backend execution evidence.
-
-### Endpoints
-
-- Health check: `https://<your-deployed-domain>/health`
-- MCP endpoint: `https://<your-deployed-domain>/mcp`
-- Optional OpenAI domain verification: `https://<your-deployed-domain>/.well-known/openai-domain-verification.txt`
-
-The MCP server exposes only public-safe website content from these files:
-
-- Root public pages: `index.html`, `about.html`, `platform.html`, `technology.html`, `research.html`, `licensing.html`, `privacy.html`, `terms.html`, `support.html`, and `contact.html`
-- Public documentation files under `docs/`
-
-It does not expose private repositories, private quantum job files, raw JSON, raw OpenQASM, job payloads, personal documents, secrets, credentials, unpublished research, raw backend data, Core IP, or legal/private evidence files. It also does not claim endorsement, approval, certification, backing, or partnership by IBM.
-
-### MCP tools
-
-- `search_public_docs` — searches public website pages and documentation snippets.
-- `fetch_public_doc` — fetches full text and canonical URL for a public page or docs path.
-- `list_public_resources` — lists available public pages and docs resources.
-- `get_licensing_info` — returns public licensing information from `licensing.html`.
-- `get_support_info` — returns support and contact information from `support.html` and `contact.html`.
-
-### Environment variables
-
-- `PORT` — optional server port. Defaults to `3000`.
-- `PUBLIC_SITE_URL` — optional canonical public website URL used in MCP results, for example `https://chougui-quantum.example.com`.
-- `OPENAI_DOMAIN_VERIFICATION_TOKEN` — optional token served at `/.well-known/openai-domain-verification.txt` for domain verification.
-
-Never commit secrets or real verification tokens. Configure them in the deployment provider dashboard.
-
-### Local MCP development
+Requirements: Node.js 20 or newer.
 
 ```bash
-npm install
+npm ci
+npm test
 npm run dev
 ```
 
-Then verify:
+Verify liveness and readiness:
 
 ```bash
-curl http://localhost:3000/health
+curl --fail http://127.0.0.1:3000/health
+curl --fail http://127.0.0.1:3000/ready
 ```
 
-Expected response:
+## Production build
 
-```text
-ok
+```bash
+npm ci
+npm test
+npm run build
+npm start
 ```
 
-### Deployment target
+The production start command runs `dist/src/server.js`.
 
-Deploy the Node.js server to any HTTPS host that supports long-lived HTTP requests, such as Render, Railway, Fly.io, a container platform, or another public HTTPS Node.js deployment.
+## MCP connectivity test
 
-Use these settings on a typical Node.js host:
+Start the production server and run:
 
-- Build command: `npm ci && npm run build`
-- Start command: `npm start`
-- Public MCP URL format for OpenAI Platform: `https://<your-deployed-domain>/mcp`
-- Public health URL format: `https://<your-deployed-domain>/health`
+```bash
+MCP_URL=http://127.0.0.1:3000/mcp npm run smoke:mcp
+```
 
-### OpenAI Platform “Scan Tools” test
+The test initializes an MCP session, scans the tool list, confirms the read-only annotations, and invokes two tools.
 
-1. Deploy the server to a public HTTPS domain.
-2. If domain verification is required, set `OPENAI_DOMAIN_VERIFICATION_TOKEN` in the host environment and confirm `https://<your-deployed-domain>/.well-known/openai-domain-verification.txt` returns the token.
-3. In OpenAI Platform app configuration, set the MCP server URL to `https://<your-deployed-domain>/mcp`.
-4. Run **Scan Tools**.
-5. Confirm the five read-only tools appear: `search_public_docs`, `fetch_public_doc`, `list_public_resources`, `get_licensing_info`, and `get_support_info`.
-The website is intentionally public-facing. Do not add unpublished research details, confidential datasets, credentials, private infrastructure information, or unsupported scientific claims.
+For a remote deployment:
+
+```bash
+MCP_URL=https://YOUR-MCP-DOMAIN/mcp npm run smoke:mcp
+```
+
+## Container deployment
+
+```bash
+docker build -t chougui-public-mcp .
+docker run --rm -p 3000:3000 \
+  -e PORT=3000 \
+  -e PUBLIC_SITE_URL=https://YOUR-PUBLIC-SITE \
+  chougui-public-mcp
+```
+
+A `render.yaml` blueprint is included for a Node web service. The MCP server must run on a public HTTPS application host; GitHub Pages alone cannot run the Node.js MCP process.
+
+Required host configuration:
+
+- build: `npm ci && npm test && npm run build`
+- start: `npm start`
+- health check: `/ready`
+- MCP URL submitted to OpenAI: `https://YOUR-MCP-DOMAIN/mcp`
+
+## Environment variables
+
+- `PORT` — server port; defaults to `3000`
+- `PUBLIC_SITE_URL` — canonical public website URL used in tool results
+- `OPENAI_DOMAIN_VERIFICATION_TOKEN` — optional domain-verification token
+- `APP_VERSION` — deployed application version
+- `GIT_COMMIT_SHA` — optional deployed commit identifier
+
+Never commit real tokens or secrets.
+
+## OpenAI app review procedure
+
+Before resubmission:
+
+1. Deploy the MCP server to a public HTTPS application host.
+2. Confirm `/health` and `/ready` return HTTP 200.
+3. Run the remote `smoke:mcp` test.
+4. Configure the exact endpoint `https://YOUR-MCP-DOMAIN/mcp`.
+5. Run **Scan Tools** in OpenAI Platform or ChatGPT developer mode.
+6. Confirm all five read-only tools appear and can be called.
+7. Record the deployed commit and test evidence.
+
+Review documents are in `docs/review/`.
+
+## CI
+
+`.github/workflows/mcp-connectivity.yml` is a blocking connectivity pipeline that:
+
+- installs dependencies
+- type-checks and validates the public corpus
+- builds and starts the production server
+- checks `/ready`
+- performs an MCP protocol smoke test
+- builds and runs the production container
+- repeats the readiness and MCP checks against the container
+
+## Public information policy
+
+Public materials may summarize platform architecture and approved evidence categories. Do not publish:
+
+- private repository contents
+- raw IBM Quantum credentials or private job payloads
+- raw protected OpenQASM
+- unpublished research
+- personal documents
+- secrets or tokens
+- unsupported scientific claims
+- claims of OpenAI or IBM endorsement, approval, certification, or partnership

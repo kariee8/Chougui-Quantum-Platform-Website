@@ -1,0 +1,91 @@
+name: MCP Connectivity
+
+on:
+  push:
+    branches: ["main", "fix/openai-mcp-connectivity-review"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify-mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate source and public corpus
+        run: npm test
+
+      - name: Build production server
+        run: npm run build
+
+      - name: Start production server
+        run: |
+          PORT=3000 PUBLIC_SITE_URL=https://example.test APP_VERSION=ci npm start > server.log 2>&1 &
+          echo $! > server.pid
+
+      - name: Wait for readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat server.log
+          exit 1
+
+      - name: Run MCP protocol smoke test
+        env:
+          MCP_URL: http://127.0.0.1:3000/mcp
+        run: npm run smoke:mcp
+
+      - name: Build deployment container
+        run: docker build --tag chougui-public-mcp:test .
+
+      - name: Run deployment container
+        run: |
+          docker run --detach --name chougui-public-mcp --publish 3001:3000 \
+            --env PORT=3000 \
+            --env PUBLIC_SITE_URL=https://example.test \
+            --env APP_VERSION=ci-docker \
+            chougui-public-mcp:test
+
+      - name: Verify container readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3001/ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs chougui-public-mcp
+          exit 1
+
+      - name: Verify container MCP endpoint
+        env:
+          MCP_URL: http://127.0.0.1:3001/mcp
+        run: npm run smoke:mcp
+
+      - name: Show server logs
+        if: always()
+        run: |
+          cat server.log 2>/dev/null || true
+          docker logs chougui-public-mcp 2>/dev/null || true
+
+      - name: Stop test services
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill "$(cat server.pid)" 2>/dev/null || true; fi
+          docker rm --force chougui-public-mcp 2>/dev/null || true
